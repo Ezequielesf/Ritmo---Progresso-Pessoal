@@ -1,0 +1,1595 @@
+```html
+<!DOCTYPE html>
+<html lang="pt-BR" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ritmo - Progresso Pessoal</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Inter & Plus Jakarta Sans -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <!-- FontAwesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Supabase JS SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        creme: {
+                            DEFAULT: '#F7F5EF',
+                            dark: '#EFECE4',
+                            card: '#FFFFFF'
+                        },
+                        salvia: {
+                            DEFAULT: '#A3B18A',
+                            light: '#C2CDB2',
+                            dark: '#588157',
+                            soft: '#F0F4EC'
+                        },
+                        cinza: {
+                            escuro: '#2C3531',
+                            medio: '#6C757D',
+                            claro: '#E9ECEF'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        heading: ['Plus Jakarta Sans', 'sans-serif']
+                    },
+                    boxShadow: {
+                        'soft': '0 4px 20px -2px rgba(44, 53, 49, 0.05)',
+                        'card': '0 2px 12px 0 rgba(44, 53, 49, 0.04)'
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background-color: #F7F5EF;
+            color: #2C3531;
+            font-family: 'Inter', sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+        h1, h2, h3, h4, .font-heading {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+        }
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+</head>
+<body class="h-full flex justify-center items-center p-0 sm:p-4 bg-[#F0ECE1]">
+
+    <!-- APP CONTAINER -->
+    <div id="app-container" class="w-full sm:max-w-[430px] h-full sm:h-[880px] bg-creme sm:rounded-[36px] sm:shadow-2xl flex flex-col relative overflow-hidden border-0 sm:border-8 sm:border-[#E4E0D4]">
+        
+        <!-- AUTH SCREEN (Overlay when not logged in) -->
+        <div id="auth-screen" class="absolute inset-0 bg-creme z-50 flex flex-col justify-between p-6 overflow-y-auto hidden">
+            <div class="pt-12 text-center">
+                <div class="w-16 h-16 rounded-2xl bg-salvia text-white flex items-center justify-center mx-auto mb-4 text-2xl shadow-md font-heading font-bold">
+                    <i class="fa-solid fa-seedling"></i>
+                </div>
+                <h1 class="text-3xl font-bold font-heading text-cinza-escuro">Ritmo</h1>
+                <p class="text-xs text-cinza-medio mt-1">Hábitos, objetivos e reflexões no seu tempo.</p>
+            </div>
+
+            <div class="bg-creme-card p-6 rounded-3xl shadow-card border border-[#EFECE4] space-y-4 my-auto">
+                <div id="auth-error" class="hidden bg-red-50 text-red-600 text-xs p-3 rounded-xl border border-red-200"></div>
+                <div>
+                    <label class="block text-xs font-semibold text-cinza-medio mb-1 uppercase tracking-wider">E-mail</label>
+                    <input type="email" id="auth-email" placeholder="seu@email.com" class="w-full bg-creme px-4 py-3 rounded-xl border border-[#E4E0D4] focus:outline-none focus:border-salvia text-sm text-cinza-escuro">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-cinza-medio mb-1 uppercase tracking-wider">Senha</label>
+                    <input type="password" id="auth-password" placeholder="••••••••" class="w-full bg-creme px-4 py-3 rounded-xl border border-[#E4E0D4] focus:outline-none focus:border-salvia text-sm text-cinza-escuro">
+                </div>
+                
+                <button onclick="handleAuthSubmit()" id="auth-submit-btn" class="w-full bg-salvia hover:bg-salvia-dark text-white font-semibold py-3.5 rounded-xl transition shadow-md text-sm">
+                    Entrar
+                </button>
+
+                <div class="flex justify-between items-center text-xs pt-2">
+                    <button onclick="toggleAuthMode()" id="auth-mode-toggle" class="text-salvia-dark font-medium hover:underline">Criar uma conta nova</button>
+                    <button onclick="handleForgotPassword()" class="text-cinza-medio hover:underline">Esqueci a senha</button>
+                </div>
+            </div>
+
+            <div class="text-center text-[10px] text-cinza-medio pb-4">
+                Sincronizado de forma segura com Supabase RLS.
+            </div>
+        </div>
+
+        <!-- CONFIG SUPABASE MODAL / SETUP CHECKER -->
+        <div id="supabase-setup-banner" class="hidden absolute top-0 left-0 right-0 bg-yellow-100 text-yellow-800 text-[11px] p-2 text-center z-50 border-b border-yellow-200">
+            Modo Demo Ativo. Insira suas credenciais do Supabase no código para persistência real.
+        </div>
+
+        <!-- Top Header Bar -->
+        <header class="px-6 pt-8 pb-4 flex justify-between items-center bg-creme z-10">
+            <div>
+                <p id="current-date" class="text-xs font-medium text-cinza-medio uppercase tracking-wider">Sexta-feira, 9 de Outubro</p>
+                <h1 id="header-greeting" class="text-2xl font-bold font-heading text-cinza-escuro mt-0.5">Olá, Mariana 👋</h1>
+            </div>
+            <div class="flex items-center gap-2">
+                <button onclick="openSyncModal()" title="Status da Sincronização" class="w-9 h-9 rounded-full bg-creme-card shadow-card flex items-center justify-center text-salvia-dark hover:bg-salvia-soft transition relative">
+                    <i class="fa-solid fa-cloud text-xs"></i>
+                    <span id="sync-dot" class="absolute top-1 right-1 w-2 h-2 rounded-full bg-green-500"></span>
+                </button>
+                <button onclick="openNotificationModal()" class="w-9 h-9 rounded-full bg-creme-card shadow-card flex items-center justify-center text-cinza-escuro hover:bg-salvia-soft transition">
+                    <i class="fa-regular fa-bell text-xs"></i>
+                </button>
+            </div>
+        </header>
+
+        <!-- Scrollable Main Content Area -->
+        <main id="main-content-area" class="flex-1 overflow-y-auto px-6 pb-28 pt-2 no-scrollbar space-y-6">
+
+            <!-- HOJE VIEW -->
+            <div id="view-hoje" class="view-section space-y-6">
+                <!-- Seção "Seu ritmo de hoje" -->
+                <section class="bg-creme-card p-5 rounded-2xl shadow-card border border-[#EFECE4]">
+                    <div class="flex justify-between items-center mb-3">
+                        <h2 class="text-sm font-semibold text-cinza-escuro uppercase tracking-wider flex items-center gap-2">
+                            <i class="fa-solid fa-seedling text-salvia-dark"></i> Seu ritmo de hoje
+                        </h2>
+                        <span id="progress-percent" class="text-xs font-bold text-salvia-dark bg-salvia-soft px-2.5 py-1 rounded-full">0% concluído</span>
+                    </div>
+                    <div class="w-full bg-cinza-claro h-2.5 rounded-full overflow-hidden">
+                        <div id="progress-bar" class="bg-salvia h-full rounded-full transition-all duration-500 ease-out" style="width: 0%"></div>
+                    </div>
+                    <p id="progress-subtitle" class="text-xs text-cinza-medio mt-2.5">0 de 0 hábitos concluídos. Mantenha o fluxo leve!</p>
+                </section>
+
+                <!-- Data Picker para Hábitos Históricos -->
+                <div class="flex items-center justify-between bg-creme-card px-4 py-2.5 rounded-xl shadow-card border border-[#EFECE4]">
+                    <span class="text-xs font-semibold text-cinza-escuro uppercase tracking-wider">Data do Registro</span>
+                    <input type="date" id="habits-date-picker" onchange="onHabitsDateChange()" class="bg-creme text-xs text-cinza-escuro px-3 py-1.5 rounded-lg border border-[#E4E0D4] focus:outline-none focus:border-salvia">
+                </div>
+
+                <!-- Lista de hábitos -->
+                <section>
+                    <div class="flex justify-between items-center mb-3">
+                        <h2 class="text-sm font-semibold text-cinza-escuro uppercase tracking-wider">Hábitos Diários</h2>
+                        <button onclick="openAddHabitModal()" class="text-xs text-salvia-dark font-semibold hover:underline flex items-center gap-1">
+                            <i class="fa-solid fa-plus"></i> Novo hábito
+                        </button>
+                    </div>
+                    <div id="habits-list" class="space-y-3">
+                        <!-- Habits inserted dynamically -->
+                    </div>
+                    <!-- Empty state -->
+                    <div id="habits-empty" class="hidden text-center py-8 bg-creme-card rounded-2xl border border-dashed border-[#E4E0D4] p-6">
+                        <div class="w-12 h-12 rounded-full bg-salvia-soft text-salvia-dark flex items-center justify-center mx-auto mb-3 text-lg">
+                            <i class="fa-solid fa-feather"></i>
+                        </div>
+                        <p class="text-sm font-semibold text-cinza-escuro">Nenhum hábito cadastrado.</p>
+                        <p class="text-xs text-cinza-medio mt-1">Adicione pequenos passos para construir seu ritmo.</p>
+                    </div>
+                </section>
+
+                <!-- Objetivos Prioritários na Tela Hoje -->
+                <section>
+                    <div class="flex justify-between items-center mb-3">
+                        <h2 class="text-sm font-semibold text-cinza-escuro uppercase tracking-wider">Objetivos Prioritários</h2>
+                        <button onclick="switchTab('objetivos')" class="text-xs text-salvia-dark font-semibold hover:underline">Ver todos</button>
+                    </div>
+                    <div id="hoje-goals-list" class="space-y-3">
+                        <!-- Populated dynamically -->
+                    </div>
+                </section>
+
+                <!-- Vitória de Hoje -->
+                <section class="bg-gradient-to-br from-salvia-soft to-creme-card p-5 rounded-2xl shadow-card border border-[#E2EBDC]">
+                    <div class="flex items-center justify-between mb-2">
+                        <h2 class="text-sm font-semibold text-salvia-dark uppercase tracking-wider flex items-center gap-2">
+                            <i class="fa-solid fa-trophy"></i> Uma vitória de hoje
+                        </h2>
+                        <button onclick="editWin()" class="text-xs text-salvia-dark hover:underline font-medium">Editar</button>
+                    </div>
+                    <p id="win-text" class="text-sm text-cinza-escuro italic leading-relaxed">
+                        "Registre sua vitória de hoje..."
+                    </p>
+                </section>
+
+                <!-- Resumo Semanal Calculado -->
+                <section class="bg-creme-card p-5 rounded-2xl shadow-card border border-[#EFECE4]">
+                    <h2 class="text-sm font-semibold text-cinza-escuro uppercase tracking-wider mb-4 flex items-center gap-2">
+                        <i class="fa-solid fa-chart-line text-salvia-dark"></i> Resumo Semanal
+                    </h2>
+                    <div class="grid grid-cols-7 gap-2 text-center" id="weekly-grid">
+                        <!-- Populated via JS -->
+                    </div>
+                    <div class="mt-4 pt-3 border-t border-[#F2F0EB] flex justify-between items-center text-xs text-cinza-medio">
+                        <span>Constância: <strong id="weekly-constancy" class="text-cinza-escuro">0%</strong></span>
+                        <span>Sequência: <strong id="weekly-streak" class="text-salvia-dark">0 dias</strong></span>
+                    </div>
+                </section>
+            </div>
+
+            <!-- OBJETIVOS VIEW -->
+            <div id="view-objetivos" class="view-section hidden space-y-6">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <h2 class="text-2xl font-bold font-heading text-cinza-escuro">Seus objetivos</h2>
+                        <p class="text-xs text-cinza-medio mt-0.5">Pequenos passos constroem grandes mudanças.</p>
+                    </div>
+                    <button onclick="openAddGoalModal()" class="bg-salvia hover:bg-salvia-dark text-white text-xs font-semibold px-3.5 py-2.5 rounded-xl shadow-sm transition flex items-center gap-1.5">
+                        <i class="fa-solid fa-plus text-[10px]"></i> Novo objetivo
+                    </button>
+                </div>
+
+                <!-- Resumo Estatístico -->
+                <section class="bg-creme-card p-4 rounded-2xl shadow-card border border-[#EFECE4] grid grid-cols-3 gap-2 text-center">
+                    <div class="p-2 border-r border-[#EFECE4]">
+                        <p class="text-[10px] uppercase font-semibold text-cinza-medio tracking-wider">Em andamento</p>
+                        <p id="stat-goals-active" class="text-xl font-bold font-heading text-cinza-escuro mt-1">0</p>
+                    </div>
+                    <div class="p-2 border-r border-[#EFECE4]">
+                        <p class="text-[10px] uppercase font-semibold text-cinza-medio tracking-wider">Concluídos</p>
+                        <p id="stat-goals-completed" class="text-xl font-bold font-heading text-salvia-dark mt-1">0</p>
+                    </div>
+                    <div class="p-2">
+                        <p class="text-[10px] uppercase font-semibold text-cinza-medio tracking-wider">Progresso Médio</p>
+                        <p id="stat-goals-progress" class="text-xl font-bold font-heading text-cinza-escuro mt-1">0%</p>
+                    </div>
+                </section>
+
+                <!-- Filtros e Ordenação -->
+                <div class="flex flex-col gap-2">
+                    <div class="flex gap-1.5 overflow-x-auto no-scrollbar pb-1">
+                        <button onclick="setGoalFilter('todos')" id="filter-goal-todos" class="px-3 py-1.5 rounded-xl text-xs font-semibold bg-salvia text-white transition whitespace-nowrap shadow-xs">Todos</button>
+                        <button onclick="setGoalFilter('andamento')" id="filter-goal-andamento" class="px-3 py-1.5 rounded-xl text-xs font-medium bg-creme-card text-cinza-medio border border-[#EFECE4] hover:border-salvia transition whitespace-nowrap">Em andamento</button>
+                        <button onclick="setGoalFilter('concluidos')" id="filter-goal-concluidos" class="px-3 py-1.5 rounded-xl text-xs font-medium bg-creme-card text-cinza-medio border border-[#EFECE4] hover:border-salvia transition whitespace-nowrap">Concluídos</button>
+                        <button onclick="setGoalFilter('pausados')" id="filter-goal-pausados" class="px-3 py-1.5 rounded-xl text-xs font-medium bg-creme-card text-cinza-medio border border-[#EFECE4] hover:border-salvia transition whitespace-nowrap">Pausados</button>
+                    </div>
+                </div>
+
+                <!-- Lista de Objetivos -->
+                <div id="full-goals-list" class="space-y-3">
+                    <!-- Populado por JS -->
+                </div>
+
+                <!-- Estado Vazio -->
+                <div id="goals-empty" class="hidden text-center py-12 bg-creme-card rounded-2xl border border-dashed border-[#E4E0D4] p-6">
+                    <div class="w-12 h-12 rounded-full bg-salvia-soft text-salvia-dark flex items-center justify-center mx-auto mb-3 text-lg">
+                        <i class="fa-solid fa-bullseye"></i>
+                    </div>
+                    <p class="text-sm font-semibold text-cinza-escuro">Nenhum objetivo encontrado.</p>
+                    <p class="text-xs text-cinza-medio mt-1">Defina metas que inspirem sua jornada.</p>
+                </div>
+            </div>
+
+            <!-- DIÁRIO VIEW -->
+            <div id="view-diario" class="view-section hidden space-y-6">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <h2 class="text-2xl font-bold font-heading text-cinza-escuro">Seu diário</h2>
+                        <p class="text-xs text-cinza-medio mt-0.5">Um espaço privado para registrar o que importa.</p>
+                    </div>
+                    <button onclick="openAddDiaryModal()" class="bg-salvia hover:bg-salvia-dark text-white text-xs font-semibold px-3.5 py-2.5 rounded-xl shadow-sm transition flex items-center gap-1.5">
+                        <i class="fa-solid fa-plus text-[10px]"></i> Nova entrada
+                    </button>
+                </div>
+
+                <!-- Visão Geral Diário -->
+                <section class="bg-creme-card p-4 rounded-2xl shadow-card border border-[#EFECE4] flex justify-between items-center">
+                    <div>
+                        <p class="text-[10px] uppercase font-semibold text-cinza-medio tracking-wider">Registros no mês</p>
+                        <p id="diary-month-count" class="text-xl font-bold font-heading text-cinza-escuro mt-0.5">0</p>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-[10px] uppercase font-semibold text-cinza-medio tracking-wider">Privacidade</p>
+                        <p class="text-xs font-medium text-salvia-dark mt-0.5"><i class="fa-solid fa-lock text-[10px]"></i> Isolado por RLS</p>
+                    </div>
+                </section>
+
+                <!-- Filtros por Período & Busca -->
+                <div class="space-y-3">
+                    <div class="relative">
+                        <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-3 text-xs text-cinza-medio"></i>
+                        <input type="text" id="diary-search" oninput="filterDiary()" placeholder="Buscar nas entradas..." class="w-full bg-creme-card pl-9 pr-4 py-2.5 rounded-xl border border-[#EFECE4] focus:outline-none focus:border-salvia text-xs text-cinza-escuro shadow-card">
+                    </div>
+                    <div class="flex gap-1.5 overflow-x-auto no-scrollbar pb-1">
+                        <button onclick="setDiaryFilter('todos')" id="filter-diary-todos" class="px-3 py-1.5 rounded-xl text-xs font-semibold bg-salvia text-white transition whitespace-nowrap">Todas</button>
+                        <button onclick="setDiaryFilter('hoje')" id="filter-diary-hoje" class="px-3 py-1.5 rounded-xl text-xs font-medium bg-creme-card text-cinza-medio border border-[#EFECE4] transition whitespace-nowrap">Hoje</button>
+                        <button onclick="setDiaryFilter('7dias')" id="filter-diary-7dias" class="px-3 py-1.5 rounded-xl text-xs font-medium bg-creme-card text-cinza-medio border border-[#EFECE4] transition whitespace-nowrap">Últimos 7 dias</button>
+                        <button onclick="setDiaryFilter('mes')" id="filter-diary-mes" class="px-3 py-1.5 rounded-xl text-xs font-medium bg-creme-card text-cinza-medio border border-[#EFECE4] transition whitespace-nowrap">Mês atual</button>
+                    </div>
+                </div>
+
+                <!-- Lista de Entradas -->
+                <div id="diary-entries-list" class="space-y-3">
+                    <!-- Populado por JS -->
+                </div>
+
+                <!-- Estado Vazio Diário -->
+                <div id="diary-empty" class="hidden text-center py-12 bg-creme-card rounded-2xl border border-dashed border-[#E4E0D4] p-6">
+                    <div class="w-12 h-12 rounded-full bg-salvia-soft text-salvia-dark flex items-center justify-center mx-auto mb-3 text-lg">
+                        <i class="fa-solid fa-book-open"></i>
+                    </div>
+                    <p class="text-sm font-semibold text-cinza-escuro">Seu diário está em branco.</p>
+                    <p class="text-xs text-cinza-medio mt-1">Escreva seus pensamentos, vitórias e reflexões.</p>
+                </div>
+            </div>
+
+            <!-- PERFIL VIEW -->
+            <div id="view-perfil" class="view-section hidden space-y-6">
+                <!-- Header / Avatar -->
+                <div class="bg-creme-card p-6 rounded-2xl shadow-card border border-[#EFECE4] flex items-center gap-4">
+                    <div id="profile-avatar-letter" class="w-16 h-16 rounded-2xl bg-salvia text-white font-heading font-bold text-2xl flex items-center justify-center shadow-sm">
+                        M
+                    </div>
+                    <div class="flex-1">
+                        <div class="flex items-center justify-between">
+                            <h2 id="profile-display-name" class="font-heading font-bold text-lg text-cinza-escuro">Usuário</h2>
+                            <button onclick="openEditProfileModal()" class="text-xs text-salvia-dark font-semibold hover:underline">Editar</button>
+                        </div>
+                        <p id="profile-display-email" class="text-xs text-cinza-medio mt-0.5">email@exemplo.com</p>
+                        <span id="profile-member-since" class="inline-block mt-2 text-[10px] bg-salvia-soft text-salvia-dark font-semibold px-2 py-0.5 rounded-full">Membro</span>
+                    </div>
+                </div>
+
+                <!-- Estatísticas Reais -->
+                <section class="bg-creme-card p-5 rounded-2xl shadow-card border border-[#EFECE4]">
+                    <h3 class="text-xs font-semibold text-cinza-escuro uppercase tracking-wider mb-3 flex items-center gap-2">
+                        <i class="fa-solid fa-chart-pie text-salvia-dark"></i> Estatísticas da Conta
+                    </h3>
+                    <div class="grid grid-cols-3 gap-3 text-center">
+                        <div class="bg-creme p-3 rounded-xl border border-[#EFECE4]">
+                            <p id="profile-habits-count" class="text-lg font-bold font-heading text-cinza-escuro">0</p>
+                            <p class="text-[10px] text-cinza-medio mt-0.5">Hábitos ativos</p>
+                        </div>
+                        <div class="bg-creme p-3 rounded-xl border border-[#EFECE4]">
+                            <p id="profile-goals-count" class="text-lg font-bold font-heading text-cinza-escuro">0</p>
+                            <p class="text-[10px] text-cinza-medio mt-0.5">Objetivos</p>
+                        </div>
+                        <div class="bg-creme p-3 rounded-xl border border-[#EFECE4]">
+                            <p id="profile-diary-count" class="text-lg font-bold font-heading text-cinza-escuro">0</p>
+                            <p class="text-[10px] text-cinza-medio mt-0.5">Registros</p>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Configurações e Preferências -->
+                <section class="bg-creme-card rounded-2xl shadow-card border border-[#EFECE4] overflow-hidden">
+                    <div class="px-5 py-3.5 border-b border-[#EFECE4] bg-creme/50">
+                        <p class="text-xs font-semibold text-cinza-medio uppercase tracking-wider">Preferências e Dados</p>
+                    </div>
+                    <div class="divide-y divide-[#EFECE4]">
+                        <div class="px-5 py-3.5 flex justify-between items-center text-xs text-cinza-escuro">
+                            <span class="flex items-center gap-2.5"><i class="fa-regular fa-clock text-cinza-medio"></i> Fuso Horário</span>
+                            <span class="text-cinza-medio font-medium">Horário de Brasília (GMT-3)</span>
+                        </div>
+                        <button onclick="exportData()" class="w-full px-5 py-3.5 flex justify-between items-center text-xs text-cinza-escuro hover:bg-creme/40 transition text-left">
+                            <span class="flex items-center gap-2.5"><i class="fa-solid fa-file-arrow-down text-cinza-medio"></i> Exportar Dados (JSON Geral)</span>
+                            <i class="fa-solid fa-chevron-right text-[10px] text-cinza-medio"></i>
+                        </button>
+                        <button onclick="exportDiaryReport()" class="w-full px-5 py-3.5 flex justify-between items-center text-xs text-cinza-escuro hover:bg-creme/40 transition text-left">
+                            <span class="flex items-center gap-2.5"><i class="fa-solid fa-book text-cinza-medio"></i> Exportar Diário (Legível TXT)</span>
+                            <i class="fa-solid fa-chevron-right text-[10px] text-cinza-medio"></i>
+                        </button>
+                        <button onclick="openPrivacyModal()" class="w-full px-5 py-3.5 flex justify-between items-center text-xs text-cinza-escuro hover:bg-creme/40 transition text-left">
+                            <span class="flex items-center gap-2.5"><i class="fa-solid fa-shield-halved text-cinza-medio"></i> Política de Privacidade</span>
+                            <i class="fa-solid fa-chevron-right text-[10px] text-cinza-medio"></i>
+                        </button>
+                    </div>
+                </section>
+
+                <!-- Sessão e Exclusão -->
+                <div class="space-y-3 pt-2">
+                    <button onclick="handleLogout()" class="w-full bg-creme-card border border-[#EFECE4] text-cinza-escuro hover:bg-creme font-semibold py-3 rounded-xl transition text-xs shadow-card flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-arrow-right-from-bracket"></i> Sair da conta
+                    </button>
+                    <button onclick="confirmDeleteAccount()" class="w-full bg-creme-card border border-red-200 text-red-600 hover:bg-red-50 font-semibold py-3 rounded-xl transition text-xs shadow-card flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-triangle-exclamation"></i> Excluir conta permanentemente
+                    </button>
+                </div>
+            </div>
+
+        </main>
+
+        <!-- Navegação Inferior -->
+        <nav class="absolute bottom-0 left-0 right-0 bg-creme-card/90 backdrop-blur-md border-t border-[#EFECE4] px-6 py-3 flex justify-around items-center z-20">
+            <button onclick="switchTab('hoje')" id="nav-hoje" class="flex flex-col items-center gap-1 text-salvia-dark transition">
+                <i class="fa-solid fa-sun text-lg"></i>
+                <span class="text-[11px] font-semibold">Hoje</span>
+            </button>
+            <button onclick="switchTab('objetivos')" id="nav-objetivos" class="flex flex-col items-center gap-1 text-cinza-medio hover:text-cinza-escuro transition">
+                <i class="fa-solid fa-bullseye text-lg"></i>
+                <span class="text-[11px] font-medium">Objetivos</span>
+            </button>
+            <button onclick="switchTab('diario')" id="nav-diario" class="flex flex-col items-center gap-1 text-cinza-medio hover:text-cinza-escuro transition">
+                <i class="fa-solid fa-book-open text-lg"></i>
+                <span class="text-[11px] font-medium">Diário</span>
+            </button>
+            <button onclick="switchTab('perfil')" id="nav-perfil" class="flex flex-col items-center gap-1 text-cinza-medio hover:text-cinza-escuro transition">
+                <i class="fa-regular fa-user text-lg"></i>
+                <span class="text-[11px] font-medium">Perfil</span>
+            </button>
+        </nav>
+
+        <!-- MODAL: Adicionar Hábito -->
+        <div id="habit-modal" class="absolute inset-0 bg-black/30 backdrop-blur-xs z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 opacity-0 pointer-events-none transition-opacity duration-300">
+            <div class="bg-creme-card w-full sm:max-w-md rounded-t-[28px] sm:rounded-2xl p-6 shadow-2xl transform translate-y-full sm:translate-y-0 transition-transform duration-300" id="habit-modal-content">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="font-heading font-bold text-lg text-cinza-escuro">Novo Hábito Diário</h3>
+                    <button onclick="closeAddHabitModal()" class="w-8 h-8 rounded-full bg-cinza-claro text-cinza-escuro flex items-center justify-center"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-cinza-medio mb-1 uppercase tracking-wider">Nome do Hábito *</label>
+                        <input type="text" id="new-habit-name" placeholder="Ex: Meditar por 10 minutos" class="w-full bg-creme px-4 py-3 rounded-xl border border-[#E4E0D4] focus:outline-none focus:border-salvia text-sm text-cinza-escuro">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-cinza-medio mb-1 uppercase tracking-wider">Categoria</label>
+                        <select id="new-habit-cat" class="w-full bg-creme px-4 py-3 rounded-xl border border-[#E4E0D4] focus:outline-none focus:border-salvia text-sm text-cinza-escuro">
+                            <option value="Mente">Mente & Foco</option>
+                            <option value="Corpo">Corpo & Saúde</option>
+                            <option value="Criatividade">Criatividade & Trabalho</option>
+                            <option value="Bem-estar">Bem-estar</option>
+                        </select>
+                    </div>
+                    <button onclick="handleAddHabit()" class="w-full bg-salvia hover:bg-salvia-dark text-white font-semibold py-3.5 rounded-xl transition shadow-md text-sm mt-2">
+                        Adicionar Hábito
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- MODAL: Adicionar/Editar Objetivo -->
+        <div id="goal-modal" class="absolute inset-0 bg-black/30 backdrop-blur-xs z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 opacity-0 pointer-events-none transition-opacity duration-300">
+            <div class="bg-creme-card w-full sm:max-w-md rounded-t-[28px] sm:rounded-2xl p-6 shadow-2xl transform translate-y-full sm:translate-y-0 transition-transform duration-300 max-h-[90vh] overflow-y-auto" id="goal-modal-content">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 id="goal-modal-title" class="font-heading font-bold text-lg text-cinza-escuro">Novo Objetivo</h3>
+                    <button onclick="closeGoalModal()" class="w-8 h-8 rounded-full bg-cinza-claro text-cinza-escuro flex items-center justify-center"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                <div class="space-y-4">
+                    <input type="hidden" id="goal-edit-id">
+                    <div>
+                        <label class="block text-xs font-semibold text-cinza-medio mb-1 uppercase tracking-wider">Título do Objetivo *</label>
+                        <input type="text" id="goal-input-name" placeholder="Ex: Concluir o MVP do aplicativo" class="w-full bg-creme px-4 py-3 rounded-xl border border-[#E4E0D4] focus:outline-none focus:border-salvia text-sm text-cinza-escuro">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-cinza-medio mb-1 uppercase tracking-wider">Descrição (opcional)</label>
+                        <textarea id="goal-input-desc" placeholder="Detalhes ou motivação..." rows="2" class="w-full bg-creme px-4 py-3 rounded-xl border border-[#E4E0D4] focus:outline-none focus:border-salvia text-sm text-cinza-escuro resize-none"></textarea>
+                    </div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs font-semibold text-cinza-medio mb-1 uppercase tracking-wider">Categoria</label>
+                            <input type="text" id="goal-input-cat" placeholder="Ex: Profissional" class="w-full bg-creme px-4 py-3 rounded-xl border border-[#E4E0D4] focus:outline-none focus:border-salvia text-sm text-cinza-escuro">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-cinza-medio mb-1 uppercase tracking-wider">Prazo</label>
+                            <input type="text" id="goal-input-deadline" placeholder="Ex: Outubro" class="w-full bg-creme px-4 py-3 rounded-xl border border-[#E4E0D4] focus:outline-none focus:border-salvia text-sm text-cinza-escuro">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-cinza-medio mb-1 uppercase tracking-wider">Progresso (%)</label>
+                        <div class="flex items-center gap-3">
+                            <input type="range" id="goal-input-progress-slider" min="0" max="100" value="0" oninput="document.getElementById('goal-input-progress-val').innerText = this.value + '%'" class="flex-1 accent-salvia">
+                            <span id="goal-input-progress-val" class="text-xs font-bold text-cinza-escuro w-10 text-right">0%</span>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-cinza-medio mb-1 uppercase tracking-wider">Status</label>
+                        <select id="goal-input-status" class="w-full bg-creme px-4 py-3 rounded-xl border border-[#E4E0D4] focus:outline-none focus:border-salvia text-sm text-cinza-escuro">
+                            <option value="andamento">Em andamento</option>
+                            <option value="concluido">Concluído</option>
+                            <option value="pausado">Pausado</option>
+                        </select>
+                    </div>
+                    <button onclick="saveGoal()" class="w-full bg-salvia hover:bg-salvia-dark text-white font-semibold py-3.5 rounded-xl transition shadow-md text-sm mt-2">
+                        Salvar Objetivo
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- MODAL: Adicionar/Editar Diário -->
+        <div id="diary-modal" class="absolute inset-0 bg-black/30 backdrop-blur-xs z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 opacity-0 pointer-events-none transition-opacity duration-300">
+            <div class="bg-creme-card w-full sm:max-w-md rounded-t-[28px] sm:rounded-2xl p-6 shadow-2xl transform translate-y-full sm:translate-y-0 transition-transform duration-300 max-h-[90vh] overflow-y-auto" id="diary-modal-content">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 id="diary-modal-title" class="font-heading font-bold text-lg text-cinza-escuro">Nova Entrada no Diário</h3>
+                    <button onclick="closeDiaryModal()" class="w-8 h-8 rounded-full bg-cinza-claro text-cinza-escuro flex items-center justify-center"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                <div class="space-y-4">
+                    <input type="hidden" id="diary-edit-id">
+                    <div>
+                        <label class="block text-xs font-semibold text-cinza-medio mb-1 uppercase tracking-wider">Título (opcional)</label>
+                        <input type="text" id="diary-input-title" placeholder="Ex: Um dia de foco produtivo" class="w-full bg-creme px-4 py-3 rounded-xl border border-[#E4E0D4] focus:outline-none focus:border-salvia text-sm text-cinza-escuro">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-cinza-medio mb-1 uppercase tracking-wider">Texto da entrada * (Privado)</label>
+                        <textarea id="diary-input-text" placeholder="Escreva seus pensamentos..." rows="5" class="w-full bg-creme px-4 py-3 rounded-xl border border-[#E4E0D4] focus:outline-none focus:border-salvia text-sm text-cinza-escuro resize-none"></textarea>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-cinza-medio mb-1 uppercase tracking-wider">Vitória de hoje (opcional)</label>
+                        <input type="text" id="diary-input-win" placeholder="Ex: Terminei o relatório trimestral" class="w-full bg-creme px-4 py-3 rounded-xl border border-[#E4E0D4] focus:outline-none focus:border-salvia text-sm text-cinza-escuro">
+                    </div>
+                    <button onclick="saveDiaryEntry()" class="w-full bg-salvia hover:bg-salvia-dark text-white font-semibold py-3.5 rounded-xl transition shadow-md text-sm mt-2">
+                        Salvar Entrada
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- MODAL: Editar Perfil -->
+        <div id="profile-modal" class="absolute inset-0 bg-black/30 backdrop-blur-xs z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 opacity-0 pointer-events-none transition-opacity duration-300">
+            <div class="bg-creme-card w-full sm:max-w-md rounded-t-[28px] sm:rounded-2xl p-6 shadow-2xl transform translate-y-full sm:translate-y-0 transition-transform duration-300" id="profile-modal-content">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="font-heading font-bold text-lg text-cinza-escuro">Editar Perfil</h3>
+                    <button onclick="closeEditProfileModal()" class="w-8 h-8 rounded-full bg-cinza-claro text-cinza-escuro flex items-center justify-center"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-cinza-medio mb-1 uppercase tracking-wider">Nome de Exibição</label>
+                        <input type="text" id="profile-name-input" class="w-full bg-creme px-4 py-3 rounded-xl border border-[#E4E0D4] focus:outline-none focus:border-salvia text-sm text-cinza-escuro">
+                    </div>
+                    <button onclick="saveProfile()" class="w-full bg-salvia hover:bg-salvia-dark text-white font-semibold py-3.5 rounded-xl transition shadow-md text-sm mt-2">
+                        Salvar Alterações
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- MODAL: Política de Privacidade -->
+        <div id="privacy-modal" class="absolute inset-0 bg-black/30 backdrop-blur-xs z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 opacity-0 pointer-events-none transition-opacity duration-300">
+            <div class="bg-creme-card w-full sm:max-w-md rounded-t-[28px] sm:rounded-2xl p-6 shadow-2xl transform translate-y-full sm:translate-y-0 transition-transform duration-300 max-h-[85vh] overflow-y-auto space-y-4">
+                <div class="flex justify-between items-center">
+                    <h3 class="font-heading font-bold text-lg text-cinza-escuro">Política de Privacidade</h3>
+                    <button onclick="closePrivacyModal()" class="w-8 h-8 rounded-full bg-cinza-claro text-cinza-escuro flex items-center justify-center"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                <div class="text-xs text-cinza-medio space-y-2 leading-relaxed">
+                    <p>O <strong>Ritmo</strong> respeita rigorosamente a sua privacidade. Seus dados (hábitos, objetivos e entradas de diário) são armazenados em banco de dados seguro protegido por Row Level Security (RLS) do Supabase.</p>
+                    <p>Nenhuma informação pessoal ou entrada do diário é compartilhada com terceiros ou utilizada para fins comerciais.</p>
+                    <p>Você pode exportar ou excluir todos os seus dados a qualquer momento diretamente nas configurações de perfil.</p>
+                </div>
+                <button onclick="closePrivacyModal()" class="w-full bg-salvia text-white font-semibold py-3 rounded-xl text-xs">Entendido</button>
+            </div>
+        </div>
+
+        <!-- MODAL: Status de Sincronização -->
+        <div id="sync-modal" class="absolute inset-0 bg-black/30 backdrop-blur-xs z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 opacity-0 pointer-events-none transition-opacity duration-300">
+            <div class="bg-creme-card w-full sm:max-w-md rounded-t-[28px] sm:rounded-2xl p-6 shadow-2xl transform translate-y-full sm:translate-y-0 transition-transform duration-300 space-y-4">
+                <div class="flex justify-between items-center">
+                    <h3 class="font-heading font-bold text-lg text-cinza-escuro">Status da Sincronização</h3>
+                    <button onclick="closeSyncModal()" class="w-8 h-8 rounded-full bg-cinza-claro text-cinza-escuro flex items-center justify-center"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                <div class="bg-creme p-4 rounded-xl space-y-2 text-xs text-cinza-escuro border border-[#EFECE4]">
+                    <p class="flex items-center gap-2"><i class="fa-solid fa-circle text-green-500 text-[8px]"></i> Conectado ao Supabase</p>
+                    <p class="text-cinza-medio">Sua sessão está ativa e os dados são sincronizados em tempo real com segurança RLS.</p>
+                </div>
+                <button onclick="closeSyncModal()" class="w-full bg-salvia text-white font-semibold py-3 rounded-xl text-xs">Fechar</button>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- MAIN JAVASCRIPT & SUPABASE CLIENT LOGIC -->
+    <script>
+        // ==========================================
+        // CONFIGURAÇÃO SUPABASE (Substitua pelas suas chaves)
+        // ==========================================
+        const SUPABASE_URL = 'https://SEU_PROJETO.supabase.co';
+        const SUPABASE_ANON_KEY = 'SUA_CHAVE_ANON_SUPABASE';
+
+        let supabaseClient = null;
+        let isDemoMode = false;
+
+        try {
+            if (SUPABASE_URL.includes('SEU_PROJETO') || !window.supabase) {
+                isDemoMode = true;
+                document.getElementById('supabase-setup-banner').classList.remove('hidden');
+            } else {
+                supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+            }
+        } catch (e) {
+            isDemoMode = true;
+        }
+
+        // Estado Global da Aplicação
+        let state = {
+            user: {
+                id: 'demo-user-123',
+                name: 'Mariana Silva',
+                email: 'mariana@exemplo.com',
+                memberSince: 'Outubro de 2026'
+            },
+            habits: [],
+            completions: {}, // { 'YYYY-MM-DD': { habitId: true/false } }
+            goals: [],
+            diary: [],
+            dailyWins: {}, // { 'YYYY-MM-DD': 'texto da vitória' }
+            goalFilter: 'todos',
+            diaryFilter: 'todos',
+            currentTab: 'hoje',
+            selectedDate: new Date().toISOString().split('T')[0],
+            isAuthSignUp: false
+        };
+
+        // Inicialização
+        window.onload = async () => {
+            document.getElementById('habits-date-picker').value = state.selectedDate;
+            setFormattedDate();
+
+            if (!isDemoMode && supabaseClient) {
+                const { data: { session } } = await supabaseClient.auth.getSession();
+                if (session) {
+                    state.user.id = session.user.id;
+                    state.user.email = session.user.email;
+                    document.getElementById('auth-screen').classList.add('hidden');
+                    await loadUserDataFromSupabase();
+                } else {
+                    document.getElementById('auth-screen').classList.remove('hidden');
+                }
+            } else {
+                // Modo demo com dados iniciais ricos
+                loadDemoData();
+                document.getElementById('auth-screen').classList.add('hidden');
+            }
+            renderApp();
+        };
+
+        function loadDemoData() {
+            state.habits = [
+                { id: 101, title: 'Beber 2 litros de água', category: 'Corpo' },
+                { id: 102, title: 'Leitura de 15 páginas', category: 'Mente' },
+                { id: 103, title: 'Caminhada ao ar livre', category: 'Corpo' },
+                { id: 104, title: 'Revisar tarefas do projeto', category: 'Trabalho' }
+            ];
+            state.completions[state.selectedDate] = { 101: true, 102: true, 103: false, 104: false };
+            state.goals = [
+                { id: 201, title: 'Concluir o MVP do aplicativo Ritmo', description: 'Finalizar telas e interações principais.', category: 'Profissional', progress: 75, deadline: 'Outubro', status: 'andamento' },
+                { id: 202, title: 'Ler 3 livros este mês', description: 'Foco em desenvolvimento pessoal.', category: 'Mente', progress: 100, deadline: 'Outubro', status: 'concluido' }
+            ];
+            state.diary = [
+                { id: 301, title: 'Dia de alto foco', text: 'Consegui estruturar todas as demandas da semana pela manhã.', win: '45 minutos de foco absoluto.', date: '2026-10-08' }
+            ];
+            state.dailyWins[state.selectedDate] = "Consegui focar 45 minutos seguidos no projeto principal sem olhar o celular.";
+        }
+
+        // ==========================================
+        // AUTENTICAÇÃO SUPABASE
+        // ==========================================
+        function toggleAuthMode() {
+            state.isAuthSignUp = !state.isAuthSignUp;
+            const btn = document.getElementById('auth-submit-btn');
+            const toggle = document.getElementById('auth-mode-toggle');
+            if (state.isAuthSignUp) {
+                btn.innerText = "Criar conta";
+                toggle.innerText = "Já tenho uma conta";
+            } else {
+                btn.innerText = "Entrar";
+                toggle.innerText = "Criar uma conta nova";
+            }
+        }
+
+        async function handleAuthSubmit() {
+            const email = document.getElementById('auth-email').value.trim();
+            const password = document.getElementById('auth-password').value;
+            const errEl = document.getElementById('auth-error');
+            errEl.classList.add('hidden');
+
+            if (!email || !password) {
+                errEl.innerText = "Preencha e-mail e senha.";
+                errEl.classList.remove('hidden');
+                return;
+            }
+
+            if (isDemoMode) {
+                state.user.email = email;
+                state.user.name = email.split('@')[0];
+                document.getElementById('auth-screen').classList.add('hidden');
+                loadDemoData();
+                renderApp();
+                showToast("Entrou no modo demonstração.");
+                return;
+            }
+
+            try {
+                if (state.isAuthSignUp) {
+                    const { data, error } = await supabaseClient.auth.signUp({ email, password });
+                    if (error) throw error;
+                    showToast("Conta criada! Verifique seu e-mail se necessário.");
+                } else {
+                    const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+                    if (error) throw error;
+                    state.user.id = data.user.id;
+                    state.user.email = data.user.email;
+                    document.getElementById('auth-screen').classList.add('hidden');
+                    await loadUserDataFromSupabase();
+                    renderApp();
+                    showToast("Bem-vindo de volta!");
+                }
+            } catch (err) {
+                errEl.innerText = err.message || "Erro na autenticação.";
+                errEl.classList.remove('hidden');
+            }
+        }
+
+        async function handleForgotPassword() {
+            const email = document.getElementById('auth-email').value.trim();
+            if (!email) {
+                alert("Digite seu e-mail no campo acima para recuperar a senha.");
+                return;
+            }
+            if (isDemoMode) {
+                alert("Modo Demo: E-mail de recuperação simulado para " + email);
+                return;
+            }
+            const { error } = await supabaseClient.auth.resetPasswordForEmail(email);
+            if (error) alert(error.message);
+            else alert("Instruções de recuperação enviadas para o e-mail.");
+        }
+
+        async function handleLogout() {
+            if (!isDemoMode && supabaseClient) {
+                await supabaseClient.auth.signOut();
+            }
+            document.getElementById('auth-screen').classList.remove('hidden');
+            showToast("Sessão encerrada.");
+        }
+
+        // ==========================================
+        // SINCRONIZAÇÃO DADOS SUPABASE
+        // ==========================================
+        async function loadUserDataFromSupabase() {
+            if (isDemoMode || !supabaseClient) return;
+            try {
+                // Perfil
+                const { data: profile } = await supabaseClient.from('profiles').select('*').eq('id', state.user.id).single();
+                if (profile) {
+                    state.user.name = profile.name || state.user.email.split('@')[0];
+                    state.user.memberSince = new Date(profile.created_at).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+                }
+
+                // Hábitos
+                const { data: habits } = await supabaseClient.from('habits').select('*').eq('user_id', state.user.id);
+                if (habits) state.habits = habits;
+
+                // Conclusões
+                const { data: comps } = await supabaseClient.from('habit_completions').select('*').eq('user_id', state.user.id);
+                if (comps) {
+                    state.completions = {};
+                    comps.forEach(c => {
+                        if (!state.completions[c.completion_date]) state.completions[c.completion_date] = {};
+                        state.completions[c.completion_date][c.habit_id] = c.completed;
+                    });
+                }
+
+                // Objetivos
+                const { data: goals } = await supabaseClient.from('goals').select('*').eq('user_id', state.user.id);
+                if (goals) state.goals = goals;
+
+                // Diário
+                const { data: diary } = await supabaseClient.from('diary_entries').select('*').eq('user_id', state.user.id).order('entry_date', { ascending: false });
+                if (diary) state.diary = diary.map(d => ({ id: d.id, title: d.title, text: d.content, win: d.win, date: d.entry_date }));
+
+                // Vitórias Diárias
+                const { data: wins } = await supabaseClient.from('daily_wins').select('*').eq('user_id', state.user.id);
+                if (wins) {
+                    state.dailyWins = {};
+                    wins.forEach(w => { state.dailyWins[w.win_date] = w.win_text; });
+                }
+            } catch (e) {
+                console.error("Erro ao carregar dados do Supabase", e);
+            }
+        }
+
+        // ==========================================
+        // RENDERIZAÇÃO E NAVEGAÇÃO
+        // ==========================================
+        function renderApp() {
+            renderHeaderProfile();
+            renderHabits();
+            renderHojeGoals();
+            renderFullGoals();
+            renderGoalsStats();
+            renderDiaryEntries();
+            renderProfileStats();
+            renderWeekly();
+            updateProgress();
+            setFormattedDate();
+        }
+
+        function setFormattedDate() {
+            const options = { weekday: 'long', day: 'numeric', month: 'long' };
+            const today = new Date().toLocaleDateString('pt-BR', options);
+            const formatted = today.charAt(0).toUpperCase() + today.slice(1);
+            document.getElementById('current-date').innerText = formatted;
+        }
+
+        function renderHeaderProfile() {
+            const firstName = state.user.name.split(' ')[0];
+            document.getElementById('header-greeting').innerText = `Olá, ${firstName} 👋`;
+            document.getElementById('profile-display-name').innerText = state.user.name;
+            document.getElementById('profile-display-email').innerText = state.user.email;
+            document.getElementById('profile-avatar-letter').innerText = state.user.name.charAt(0).toUpperCase();
+            document.getElementById('profile-member-since').innerText = `Membro desde ${state.user.memberSince || 'Outubro 2026'}`;
+        }
+
+        function switchTab(tab) {
+            state.currentTab = tab;
+            const tabs = ['hoje', 'objetivos', 'diario', 'perfil'];
+            tabs.forEach(t => {
+                const view = document.getElementById(`view-${t}`);
+                const btn = document.getElementById(`nav-${t}`);
+                if (t === tab) {
+                    view.classList.remove('hidden');
+                    btn.classList.remove('text-cinza-medio');
+                    btn.classList.add('text-salvia-dark');
+                    btn.querySelector('span').classList.add('font-semibold');
+                    btn.querySelector('span').classList.remove('font-medium');
+                } else {
+                    view.classList.add('hidden');
+                    btn.classList.add('text-cinza-medio');
+                    btn.classList.remove('text-salvia-dark');
+                    btn.querySelector('span').classList.remove('font-semibold');
+                    btn.querySelector('span').classList.add('font-medium');
+                }
+            });
+            document.getElementById('main-content-area').scrollTop = 0;
+        }
+
+        // ==========================================
+        // HÁBITOS & DATA SELECIONADA
+        // ==========================================
+        function onHabitsDateChange() {
+            state.selectedDate = document.getElementById('habits-date-picker').value;
+            renderHabits();
+            updateProgress();
+            renderWinForSelectedDate();
+        }
+
+        function renderHabits() {
+            const container = document.getElementById('habits-list');
+            const emptyEl = document.getElementById('habits-empty');
+            
+            if (state.habits.length === 0) {
+                container.innerHTML = '';
+                emptyEl.classList.remove('hidden');
+                return;
+            }
+            emptyEl.classList.add('hidden');
+
+            const dateComps = state.completions[state.selectedDate] || {};
+
+            container.innerHTML = state.habits.map(habit => {
+                const isCompleted = !!dateComps[habit.id];
+                return `
+                    <div class="bg-creme-card p-4 rounded-2xl shadow-card border border-[#EFECE4] flex items-center justify-between transition-all hover:border-salvia-light">
+                        <div class="flex items-center gap-3.5">
+                            <button onclick="toggleHabit(${habit.id})" class="w-6 h-6 rounded-lg flex items-center justify-center transition-all ${isCompleted ? 'bg-salvia text-white shadow-xs' : 'border-2 border-cinza-claro hover:border-salvia'}">
+                                <i class="fa-solid fa-check text-xs ${isCompleted ? 'opacity-100' : 'opacity-0'}"></i>
+                            </button>
+                            <div>
+                                <p class="text-sm font-medium ${isCompleted ? 'line-through text-cinza-medio' : 'text-cinza-escuro'}">${escapeHtml(habit.title)}</p>
+                                <span class="text-[10px] text-salvia-dark font-semibold uppercase tracking-wider">${escapeHtml(habit.category)}</span>
+                            </div>
+                        </div>
+                        <button onclick="deleteHabit(${habit.id})" class="text-cinza-claro hover:text-cinza-medio p-2 text-xs transition">
+                            <i class="fa-solid fa-trash-can"></i>
+                        </button>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        async function toggleHabit(habitId) {
+            if (!state.completions[state.selectedDate]) {
+                state.completions[state.selectedDate] = {};
+            }
+            const current = !!state.completions[state.selectedDate][habitId];
+            state.completions[state.selectedDate][habitId] = !current;
+
+            if (!isDemoMode && supabaseClient) {
+                await supabaseClient.from('habit_completions').upsert({
+                    user_id: state.user.id,
+                    habit_id: habitId,
+                    completion_date: state.selectedDate,
+                    completed: !current
+                }, { onConflict: 'user_id,habit_id,completion_date' });
+            }
+
+            renderHabits();
+            updateProgress();
+            renderWeekly();
+            renderProfileStats();
+        }
+
+        function updateProgress() {
+            const total = state.habits.length;
+            const dateComps = state.completions[state.selectedDate] || {};
+            const completed = state.habits.filter(h => dateComps[h.id]).length;
+            const percent = total > 0 ? Math.round((completed / total) * 100) : 0;
+
+            document.getElementById('progress-bar').style.width = `${percent}%`;
+            document.getElementById('progress-percent').innerText = `${percent}% concluído`;
+            document.getElementById('progress-subtitle').innerText = `${completed} de ${total} hábitos concluídos para esta data.`;
+        }
+
+        function openAddHabitModal() {
+            const modal = document.getElementById('habit-modal');
+            const content = document.getElementById('habit-modal-content');
+            modal.classList.remove('opacity-0', 'pointer-events-none');
+            content.classList.remove('translate-y-full');
+        }
+
+        function closeAddHabitModal() {
+            const modal = document.getElementById('habit-modal');
+            const content = document.getElementById('habit-modal-content');
+            modal.classList.add('opacity-0', 'pointer-events-none');
+            content.classList.add('translate-y-full');
+            document.getElementById('new-habit-name').value = '';
+        }
+
+        async function handleAddHabit() {
+            const nameInput = document.getElementById('new-habit-name');
+            const catSelect = document.getElementById('new-habit-cat');
+            const title = nameInput.value.trim();
+
+            if (!title) {
+                showToast("Informe o nome do hábito.");
+                return;
+            }
+
+            let newHabit = { id: Date.now(), title, category: catSelect.value };
+
+            if (!isDemoMode && supabaseClient) {
+                const { data, error } = await supabaseClient.from('habits').insert({
+                    user_id: state.user.id,
+                    title,
+                    category: catSelect.value
+                }).select().single();
+                if (error) {
+                    showToast("Erro ao salvar hábito.");
+                    return;
+                }
+                if (data) newHabit = data;
+            }
+
+            state.habits.push(newHabit);
+            closeAddHabitModal();
+            renderHabits();
+            updateProgress();
+            renderProfileStats();
+            showToast("Hábito criado com sucesso!");
+        }
+
+        async function deleteHabit(id) {
+            if (confirm("Deseja excluir este hábito?")) {
+                if (!isDemoMode && supabaseClient) {
+                    await supabaseClient.from('habits').delete().eq('id', id).eq('user_id', state.user.id);
+                }
+                state.habits = state.habits.filter(h => h.id !== id);
+                renderHabits();
+                updateProgress();
+                renderProfileStats();
+                showToast("Hábito removido.");
+            }
+        }
+
+        // ==========================================
+        // OBJETIVOS (Completos e Ordenados)
+        // ==========================================
+        function renderHojeGoals() {
+            const container = document.getElementById('hoje-goals-list');
+            const topGoals = state.goals.slice(0, 3);
+            
+            if (topGoals.length === 0) {
+                container.innerHTML = `<p class="text-xs text-cinza-medio italic bg-creme-card p-4 rounded-xl text-center border border-[#EFECE4]">Nenhum objetivo prioritário.</p>`;
+                return;
+            }
+
+            container.innerHTML = topGoals.map(goal => `
+                <div class="bg-creme-card p-4 rounded-2xl shadow-card border border-[#EFECE4]">
+                    <div class="flex justify-between items-start mb-2">
+                        <p class="text-sm font-semibold text-cinza-escuro">${escapeHtml(goal.title)}</p>
+                        <span class="text-[10px] font-medium text-cinza-medio bg-creme px-2 py-0.5 rounded-md">${escapeHtml(goal.deadline || 'Prazo livre')}</span>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <div class="flex-1 bg-cinza-claro h-2 rounded-full overflow-hidden">
+                            <div class="bg-salvia-dark h-full rounded-full transition-all duration-500" style="width: ${goal.progress}%"></div>
+                        </div>
+                        <span class="text-xs font-bold text-cinza-medio">${goal.progress}%</span>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function renderFullGoals() {
+            const container = document.getElementById('full-goals-list');
+            const emptyEl = document.getElementById('goals-empty');
+            
+            let filtered = state.goals;
+            if (state.goalFilter === 'andamento') filtered = state.goals.filter(g => g.status === 'andamento');
+            if (state.goalFilter === 'concluidos') filtered = state.goals.filter(g => g.status === 'concluido');
+            if (state.goalFilter === 'pausados') filtered = state.goals.filter(g => g.status === 'pausado');
+
+            if (filtered.length === 0) {
+                container.innerHTML = '';
+                emptyEl.classList.remove('hidden');
+                return;
+            }
+            emptyEl.classList.add('hidden');
+
+            container.innerHTML = filtered.map(goal => `
+                <div class="bg-creme-card p-4 rounded-2xl shadow-card border border-[#EFECE4] space-y-3">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <span class="text-[10px] text-salvia-dark font-semibold uppercase tracking-wider bg-salvia-soft px-2 py-0.5 rounded-md">${escapeHtml(goal.category || 'Geral')}</span>
+                            <h3 class="text-sm font-bold text-cinza-escuro mt-1">${escapeHtml(goal.title)}</h3>
+                            ${goal.description ? `<p class="text-xs text-cinza-medio mt-0.5">${escapeHtml(goal.description)}</p>` : ''}
+                        </div>
+                        <div class="flex gap-1">
+                            <button onclick="openEditGoalModal(${goal.id})" class="w-7 h-7 rounded-lg bg-creme text-cinza-medio hover:text-cinza-escuro flex items-center justify-center text-xs transition"><i class="fa-solid fa-pen"></i></button>
+                            <button onclick="deleteGoal(${goal.id})" class="w-7 h-7 rounded-lg bg-creme text-cinza-medio hover:text-red-500 flex items-center justify-center text-xs transition"><i class="fa-solid fa-trash-can"></i></button>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-3 pt-1">
+                        <div class="flex-1 bg-cinza-claro h-2 rounded-full overflow-hidden">
+                            <div class="bg-salvia-dark h-full rounded-full transition-all duration-500" style="width: ${goal.progress}%"></div>
+                        </div>
+                        <span class="text-xs font-bold text-cinza-medio">${goal.progress}%</span>
+                    </div>
+                    <div class="flex justify-between items-center pt-2 border-t border-[#F2F0EB] text-[11px] text-cinza-medio">
+                        <span>Prazo: <strong class="text-cinza-escuro">${escapeHtml(goal.deadline || 'Indefinido')}</strong></span>
+                        <span class="capitalize px-2 py-0.5 rounded-full ${goal.status === 'concluido' ? 'bg-salvia-soft text-salvia-dark font-semibold' : goal.status === 'pausado' ? 'bg-yellow-50 text-yellow-700' : 'bg-creme text-cinza-escuro'}">${goal.status}</span>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function renderGoalsStats() {
+            const active = state.goals.filter(g => g.status === 'andamento').length;
+            const completed = state.goals.filter(g => g.status === 'concluido').length;
+            const totalProgress = state.goals.length > 0 ? Math.round(state.goals.reduce((acc, g) => acc + g.progress, 0) / state.goals.length) : 0;
+
+            document.getElementById('stat-goals-active').innerText = active;
+            document.getElementById('stat-goals-completed').innerText = completed;
+            document.getElementById('stat-goals-progress').innerText = `${totalProgress}%`;
+        }
+
+        function setGoalFilter(filter) {
+            state.goalFilter = filter;
+            ['todos', 'andamento', 'concluidos', 'pausados'].forEach(f => {
+                const btn = document.getElementById(`filter-goal-${f}`);
+                if (f === filter) {
+                    btn.className = "px-3 py-1.5 rounded-xl text-xs font-semibold bg-salvia text-white transition whitespace-nowrap shadow-xs";
+                } else {
+                    btn.className = "px-3 py-1.5 rounded-xl text-xs font-medium bg-creme-card text-cinza-medio border border-[#EFECE4] hover:border-salvia transition whitespace-nowrap";
+                }
+            });
+            renderFullGoals();
+        }
+
+        function openAddGoalModal() {
+            document.getElementById('goal-modal-title').innerText = "Novo Objetivo";
+            document.getElementById('goal-edit-id').value = "";
+            document.getElementById('goal-input-name').value = "";
+            document.getElementById('goal-input-desc').value = "";
+            document.getElementById('goal-input-cat').value = "";
+            document.getElementById('goal-input-deadline').value = "";
+            document.getElementById('goal-input-progress-slider').value = 0;
+            document.getElementById('goal-input-progress-val').innerText = "0%";
+            document.getElementById('goal-input-status').value = "andamento";
+
+            const modal = document.getElementById('goal-modal');
+            const content = document.getElementById('goal-modal-content');
+            modal.classList.remove('opacity-0', 'pointer-events-none');
+            content.classList.remove('translate-y-full');
+        }
+
+        function openEditGoalModal(id) {
+            const goal = state.goals.find(g => g.id === id);
+            if (!goal) return;
+
+            document.getElementById('goal-modal-title').innerText = "Editar Objetivo";
+            document.getElementById('goal-edit-id').value = goal.id;
+            document.getElementById('goal-input-name').value = goal.title;
+            document.getElementById('goal-input-desc').value = goal.description || "";
+            document.getElementById('goal-input-cat').value = goal.category || "";
+            document.getElementById('goal-input-deadline').value = goal.deadline || "";
+            document.getElementById('goal-input-progress-slider').value = goal.progress;
+            document.getElementById('goal-input-progress-val').innerText = goal.progress + "%";
+            document.getElementById('goal-input-status').value = goal.status || "andamento";
+
+            const modal = document.getElementById('goal-modal');
+            const content = document.getElementById('goal-modal-content');
+            modal.classList.remove('opacity-0', 'pointer-events-none');
+            content.classList.remove('translate-y-full');
+        }
+
+        function closeGoalModal() {
+            const modal = document.getElementById('goal-modal');
+            const content = document.getElementById('goal-modal-content');
+            modal.classList.add('opacity-0', 'pointer-events-none');
+            content.classList.add('translate-y-full');
+        }
+
+        async function saveGoal() {
+            const id = document.getElementById('goal-edit-id').value;
+            const title = document.getElementById('goal-input-name').value.trim();
+            const description = document.getElementById('goal-input-desc').value.trim();
+            const category = document.getElementById('goal-input-cat').value.trim() || 'Geral';
+            const deadline = document.getElementById('goal-input-deadline').value.trim() || 'Indefinido';
+            let progress = parseInt(document.getElementById('goal-input-progress-slider').value, 10);
+            let status = document.getElementById('goal-input-status').value;
+
+            if (!title) {
+                showToast("Informe o título do objetivo.");
+                return;
+            }
+
+            // Atualização automática se progresso for 100%
+            if (progress === 100 && status !== 'pausado') status = 'concluido';
+            if (status === 'concluido' && progress < 100) progress = 100;
+
+            if (id) {
+                const goalId = Number(id);
+                if (!isDemoMode && supabaseClient) {
+                    await supabaseClient.from('goals').update({
+                        title, description, category, deadline, progress, status
+                    }).eq('id', goalId).eq('user_id', state.user.id);
+                }
+                state.goals = state.goals.map(g => g.id === goalId ? { ...g, title, description, category, deadline, progress, status } : g);
+                showToast("Objetivo atualizado!");
+            } else {
+                let newGoal = { id: Date.now(), title, description, category, deadline, progress, status };
+                if (!isDemoMode && supabaseClient) {
+                    const { data, error } = await supabaseClient.from('goals').insert({
+                        user_id: state.user.id, title, description, category, deadline, progress, status
+                    }).select().single();
+                    if (data) newGoal = data;
+                }
+                state.goals.push(newGoal);
+                showToast("Objetivo criado!");
+            }
+
+            closeGoalModal();
+            renderFullGoals();
+            renderHojeGoals();
+            renderGoalsStats();
+            renderProfileStats();
+        }
+
+        async function deleteGoal(id) {
+            if (confirm("Tem certeza que deseja excluir este objetivo?")) {
+                if (!isDemoMode && supabaseClient) {
+                    await supabaseClient.from('goals').delete().eq('id', id).eq('user_id', state.user.id);
+                }
+                state.goals = state.goals.filter(g => g.id !== id);
+                renderFullGoals();
+                renderHojeGoals();
+                renderGoalsStats();
+                renderProfileStats();
+                showToast("Objetivo excluído.");
+            }
+        }
+
+        // ==========================================
+        // DIÁRIO (Privado, Filtros, Contagem Mensal)
+        // ==========================================
+        function renderDiaryEntries() {
+            const container = document.getElementById('diary-entries-list');
+            const emptyEl = document.getElementById('diary-empty');
+            const searchVal = (document.getElementById('diary-search')?.value || '').toLowerCase();
+
+            const now = new Date();
+            const currentMonthYear = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+
+            let filtered = state.diary.filter(entry => {
+                const matchesSearch = entry.title.toLowerCase().includes(searchVal) || 
+                                      entry.text.toLowerCase().includes(searchVal) ||
+                                      (entry.win && entry.win.toLowerCase().includes(searchVal));
+                
+                if (!matchesSearch) return false;
+
+                if (state.diaryFilter === 'hoje') {
+                    return entry.date === new Date().toISOString().split('T')[0];
+                }
+                if (state.diaryFilter === '7dias') {
+                    const entryDate = new Date(entry.date);
+                    const diffDays = (now - entryDate) / (1000 * 60 * 60 * 24);
+                    return diffDays <= 7;
+                }
+                if (state.diaryFilter === 'mes') {
+                    return entry.date.startsWith(currentMonthYear);
+                }
+                return true;
+            });
+
+            // Contagem mês atual
+            const monthCount = state.diary.filter(e => e.date.startsWith(currentMonthYear)).length;
+            document.getElementById('diary-month-count').innerText = monthCount;
+
+            if (filtered.length === 0) {
+                container.innerHTML = '';
+                emptyEl.classList.remove('hidden');
+                return;
+            }
+            emptyEl.classList.add('hidden');
+
+            container.innerHTML = filtered.map(entry => `
+                <div class="bg-creme-card p-4 rounded-2xl shadow-card border border-[#EFECE4] space-y-2">
+                    <div class="flex justify-between items-center">
+                        <span class="text-[10px] text-cinza-medio font-semibold">${escapeHtml(entry.date)}</span>
+                        <div class="flex gap-1">
+                            <button onclick="openEditDiaryModal(${entry.id})" class="text-cinza-medio hover:text-cinza-escuro p-1.5 text-xs transition"><i class="fa-solid fa-pen"></i></button>
+                            <button onclick="deleteDiaryEntry(${entry.id})" class="text-cinza-medio hover:text-red-500 p-1.5 text-xs transition"><i class="fa-solid fa-trash-can"></i></button>
+                        </div>
+                    </div>
+                    <h3 class="text-sm font-bold text-cinza-escuro">${escapeHtml(entry.title || 'Reflexão diária')}</h3>
+                    <p class="text-xs text-cinza-medio leading-relaxed whitespace-pre-wrap">${escapeHtml(entry.text)}</p>
+                    ${entry.win ? `
+                        <div class="mt-2 pt-2 border-t border-[#F2F0EB] text-xs text-salvia-dark flex items-center gap-1.5">
+                            <i class="fa-solid fa-trophy text-[10px]"></i> <span>Vitória: ${escapeHtml(entry.win)}</span>
+                        </div>
+                    ` : ''}
+                </div>
+            `).join('');
+        }
+
+        function setDiaryFilter(filter) {
+            state.diaryFilter = filter;
+            ['todos', 'hoje', '7dias', 'mes'].forEach(f => {
+                const btn = document.getElementById(`filter-diary-${f}`);
+                if (f === filter) {
+                    btn.className = "px-3 py-1.5 rounded-xl text-xs font-semibold bg-salvia text-white transition whitespace-nowrap";
+                } else {
+                    btn.className = "px-3 py-1.5 rounded-xl text-xs font-medium bg-creme-card text-cinza-medio border border-[#EFECE4] transition whitespace-nowrap";
+                }
+            });
+            renderDiaryEntries();
+        }
+
+        function filterDiary() {
+            renderDiaryEntries();
+        }
+
+        function openAddDiaryModal() {
+            document.getElementById('diary-modal-title').innerText = "Nova Entrada no Diário";
+            document.getElementById('diary-edit-id').value = "";
+            document.getElementById('diary-input-title').value = "";
+            document.getElementById('diary-input-text').value = "";
+            document.getElementById('diary-input-win').value = "";
+
+            const modal = document.getElementById('diary-modal');
+            const content = document.getElementById('diary-modal-content');
+            modal.classList.remove('opacity-0', 'pointer-events-none');
+            content.classList.remove('translate-y-full');
+        }
+
+        function openEditDiaryModal(id) {
+            const entry = state.diary.find(e => e.id === id);
+            if (!entry) return;
+
+            document.getElementById('diary-modal-title').innerText = "Editar Entrada";
+            document.getElementById('diary-edit-id').value = entry.id;
+            document.getElementById('diary-input-title').value = entry.title || "";
+            document.getElementById('diary-input-text').value = entry.text || "";
+            document.getElementById('diary-input-win').value = entry.win || "";
+
+            const modal = document.getElementById('diary-modal');
+            const content = document.getElementById('diary-modal-content');
+            modal.classList.remove('opacity-0', 'pointer-events-none');
+            content.classList.remove('translate-y-full');
+        }
+
+        function closeDiaryModal() {
+            const textVal = document.getElementById('diary-input-text').value.trim();
+            if (textVal && confirm("Deseja descartar as alterações não salvas?")) {
+                const modal = document.getElementById('diary-modal');
+                const content = document.getElementById('diary-modal-content');
+                modal.classList.add('opacity-0', 'pointer-events-none');
+                content.classList.add('translate-y-full');
+            } else if (!textVal) {
+                const modal = document.getElementById('diary-modal');
+                const content = document.getElementById('diary-modal-content');
+                modal.classList.add('opacity-0', 'pointer-events-none');
+                content.classList.add('translate-y-full');
+            }
+        }
+
+        async function saveDiaryEntry() {
+            const id = document.getElementById('diary-edit-id').value;
+            const title = document.getElementById('diary-input-title').value.trim();
+            const text = document.getElementById('diary-input-text').value.trim();
+            const win = document.getElementById('diary-input-win').value.trim();
+
+            if (!text) {
+                showToast("Escreva o texto da entrada.");
+                return;
+            }
+
+            const todayStr = new Date().toISOString().split('T')[0];
+
+            if (id) {
+                const entryId = Number(id);
+                if (!isDemoMode && supabaseClient) {
+                    await supabaseClient.from('diary_entries').update({
+                        title: title || 'Reflexão diária',
+                        content: text,
+                        win
+                    }).eq('id', entryId).eq('user_id', state.user.id);
+                }
+                state.diary = state.diary.map(e => e.id === entryId ? { ...e, title, text, win } : e);
+                showToast("Entrada atualizada!");
+            } else {
+                let newEntry = { id: Date.now(), title: title || 'Reflexão diária', text, win, date: todayStr };
+                if (!isDemoMode && supabaseClient) {
+                    const { data, error } = await supabaseClient.from('diary_entries').insert({
+                        user_id: state.user.id,
+                        title: title || 'Reflexão diária',
+                        content: text,
+                        win,
+                        entry_date: todayStr
+                    }).select().single();
+                    if (data) newEntry = { id: data.id, title: data.title, text: data.content, win: data.win, date: data.entry_date };
+                }
+                state.diary.unshift(newEntry);
+                showToast("Entrada salva no diário!");
+            }
+
+            // Fechar modal sem prompt
+            const modal = document.getElementById('diary-modal');
+            const content = document.getElementById('diary-modal-content');
+            modal.classList.add('opacity-0', 'pointer-events-none');
+            content.classList.add('translate-y-full');
+
+            renderDiaryEntries();
+            renderProfileStats();
+        }
+
+        async function deleteDiaryEntry(id) {
+            if (confirm("Excluir esta entrada do diário?")) {
+                if (!isDemoMode && supabaseClient) {
+                    await supabaseClient.from('diary_entries').delete().eq('id', id).eq('user_id', state.user.id);
+                }
+                state.diary = state.diary.filter(e => e.id !== id);
+                renderDiaryEntries();
+                renderProfileStats();
+                showToast("Entrada removida.");
+            }
+        }
+
+        // ==========================================
+        // VITÓRIA DIÁRIA & RESUMO SEMANAL CALCULADO
+        // ==========================================
+        function renderWinForSelectedDate() {
+            const winEl = document.getElementById('win-text');
+            const win = state.dailyWins[state.selectedDate];
+            winEl.innerText = win ? `"${win}"` : `"Nenhuma vitória registrada para ${state.selectedDate}..."`;
+        }
+
+        async function editWin() {
+            const current = state.dailyWins[state.selectedDate] || '';
+            const newWin = prompt("Registre sua vitória para " + state.selectedDate + ":", current);
+            if (newWin !== null) {
+                state.dailyWins[state.selectedDate] = newWin.trim();
+                renderWinForSelectedDate();
+
+                if (!isDemoMode && supabaseClient) {
+                    await supabaseClient.from('daily_wins').upsert({
+                        user_id: state.user.id,
+                        win_date: state.selectedDate,
+                        win_text: newWin.trim()
+                    }, { onConflict: 'user_id,win_date' });
+                }
+                showToast("Vitória atualizada!");
+            }
+        }
+
+        function renderWeekly() {
+            const grid = document.getElementById('weekly-grid');
+            const days = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
+            
+            // Calcular últimos 7 dias a partir de hoje
+            const today = new Date();
+            let totalActiveDays = 0;
+            let currentStreak = 0;
+            let maxStreak = 0;
+
+            let html = '';
+            for (let i = 6; i >= 0; i--) {
+                const d = new Date();
+                d.setDate(today.getDate() - i);
+                const dateStr = d.toISOString().split('T')[0];
+                const dayName = days[(d.getDay() + 6) % 7];
+
+                const dateComps = state.completions[dateStr] || {};
+                const totalHabits = state.habits.length;
+                const completedCount = state.habits.filter(h => dateComps[h.id]).length;
+                const isActive = totalHabits > 0 && completedCount === totalHabits;
+                const isToday = dateStr === new Date().toISOString().split('T')[0];
+
+                if (isActive) {
+                    totalActiveDays++;
+                    currentStreak++;
+                    if (currentStreak > maxStreak) maxStreak = currentStreak;
+                } else {
+                    currentStreak = 0;
+                }
+
+                html += `
+                    <div class="flex flex-col items-center gap-1.5">
+                        <div class="w-9 h-9 rounded-xl flex items-center justify-center text-xs font-semibold transition-all ${
+                            isToday 
+                                ? 'bg-salvia text-white shadow-sm ring-2 ring-salvia-light ring-offset-2 ring-offset-creme' 
+                                : isActive 
+                                    ? 'bg-salvia-soft text-salvia-dark' 
+                                    : 'bg-creme-card text-cinza-medio border border-[#EFECE4]'
+                        }">
+                            ${isToday ? '<i class="fa-solid fa-star text-[10px]"></i>' : dayName.charAt(0)}
+                        </div>
+                        <span class="text-[10px] text-cinza-medio font-medium">${dayName}</span>
+                    </div>
+                `;
+            }
+            grid.innerHTML = html;
+
+            const constancyPct = Math.round((totalActiveDays / 7) * 100);
+            document.getElementById('weekly-constancy').innerText = `${constancyPct}%`;
+            document.getElementById('weekly-streak').innerText = `${maxStreak} dias`;
+        }
+
+        // ==========================================
+        // PERFIL & EXPORTAÇÃO
+        // ==========================================
+        function renderProfileStats() {
+            document.getElementById('profile-habits-count').innerText = state.habits.length;
+            document.getElementById('profile-goals-count').innerText = state.goals.length;
+            document.getElementById('profile-diary-count').innerText = state.diary.length;
+        }
+
+        function openEditProfileModal() {
+            document.getElementById('profile-name-input').value = state.user.name;
+            const modal = document.getElementById('profile-modal');
+            const content = document.getElementById('profile-modal-content');
+            modal.classList.remove('opacity-0', 'pointer-events-none');
+            content.classList.remove('translate-y-full');
+        }
+
+        function closeEditProfileModal() {
+            const modal = document.getElementById('profile-modal');
+            const content = document.getElementById('profile-modal-content');
+            modal.classList.add('opacity-0', 'pointer-events-none');
+            content.classList.add('translate-y-full');
+        }
+
+        async function saveProfile() {
+            const newName = document.getElementById('profile-name-input').value.trim();
+            if (!newName) {
+                showToast("O nome não pode estar vazio.");
+                return;
+            }
+            state.user.name = newName;
+            closeEditProfileModal();
+            renderHeaderProfile();
+
+            if (!isDemoMode && supabaseClient) {
+                await supabaseClient.from('profiles').upsert({
+                    id: state.user.id,
+                    name: newName,
+                    updated_at: new Date()
+                });
+            }
+            showToast("Perfil atualizado!");
+        }
+
+        function exportData() {
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(state, null, 2));
+            const downloadAnchor = document.createElement('a');
+            downloadAnchor.setAttribute("href", dataStr);
+            downloadAnchor.setAttribute("download", "ritmo_backup_dados.json");
+            document.body.appendChild(downloadAnchor);
+            downloadAnchor.click();
+            downloadAnchor.remove();
+            showToast("Dados exportados em JSON!");
+        }
+
+        function exportDiaryReport() {
+            let content = "=== DIÁRIO RITMO - EXPORTAÇÃO LEVADA ===\n\n";
+            state.diary.forEach(e => {
+                content += `Data: ${e.date}\nTítulo: ${e.title}\nTexto:\n${e.text}\nVitória: ${e.win || 'Nenhuma'}\n-----------------------------------\n\n`;
+            });
+            const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const anchor = document.createElement('a');
+            anchor.href = url;
+            anchor.download = "ritmo_diario_legivel.txt";
+            document.body.appendChild(anchor);
+            anchor.click();
+            anchor.remove();
+            showToast("Relatório do diário exportado!");
+        }
+
+        // ==========================================
+        // MODAIS DE SUPORTE E SEGURANÇA
+        // ==========================================
+        function openPrivacyModal() {
+            const modal = document.getElementById('privacy-modal');
+            const content = modal.querySelector('div');
+            modal.classList.remove('opacity-0', 'pointer-events-none');
+            content.classList.remove('translate-y-full');
+        }
+        function closePrivacyModal() {
+            const modal = document.getElementById('privacy-modal');
+            const content = modal.querySelector('div');
+            modal.classList.add('opacity-0', 'pointer-events-none');
+            content.classList.add('translate-y-full');
+        }
+
+        function openSyncModal() {
+            const modal = document.getElementById('sync-modal');
+            const content = modal.querySelector('div');
+            modal.classList.remove('opacity-0', 'pointer-events-none');
+            content.classList.remove('translate-y-full');
+        }
+        function closeSyncModal() {
+            const modal = document.getElementById('sync-modal');
+            const content = modal.querySelector('div');
+            modal.classList.add('opacity-0', 'pointer-events-none');
+            content.classList.add('translate-y-full');
+        }
+
+        function openNotificationModal() {
+            showToast("Nenhuma notificação pendente.");
+        }
+
+        async function confirmDeleteAccount() {
+            if (confirm("ATENÇÃO: Deseja realmente excluir permanentemente sua conta e todos os dados associados? Esta ação é irreversível.")) {
+                if (!isDemoMode && supabaseClient) {
+                    // Exclusão segura no backend
+                    await supabaseClient.from('habits').delete().eq('user_id', state.user.id);
+                    await supabaseClient.from('goals').delete().eq('user_id', state.user.id);
+                    await supabaseClient.from('diary_entries').delete().eq('user_id', state.user.id);
+                    await supabaseClient.from('profiles').delete().eq('id', state.user.id);
+                    await supabaseClient.auth.signOut();
+                }
+                state.habits = [];
+                state.goals = [];
+                state.diary = [];
+                state.completions = {};
+                document.getElementById('auth-screen').classList.remove('hidden');
+                showToast("Conta e dados excluídos com sucesso.");
+            }
+        }
+
+        // Utilitários de Segurança XSS & Toasts
+        function escapeHtml(str) {
+            if (!str) return '';
+            return str.replace(/&/g, "&amp;")
+                      .replace(/</g, "&lt;")
+                      .replace(/>/g, "&gt;")
+                      .replace(/"/g, "&quot;")
+                      .replace(/'/g, "&#039;");
+        }
+
+        function showToast(message) {
+            const toast = document.createElement('div');
+            toast.className = 'absolute top-16 left-1/2 transform -translate-x-1/2 bg-cinza-escuro text-white text-xs px-4 py-2.5 rounded-full shadow-lg z-50 transition-all opacity-0';
+            toast.innerText = message;
+            document.getElementById('app-container').appendChild(toast);
+            
+            setTimeout(() => toast.classList.remove('opacity-0'), 50);
+            setTimeout(() => {
+                toast.classList.add('opacity-0');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+    </script>
+</body>
+</html>
+```
